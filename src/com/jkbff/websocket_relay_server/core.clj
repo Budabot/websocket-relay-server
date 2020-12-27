@@ -69,7 +69,7 @@
 	{:status 204})
 
 (defroutes open-routes
-		   (GET "/subscribe/:group" [group :as request] (subscribe-handler request group))
+		   (GET "/subscribe/:group" [group :as request] (subscribe-handler request (clojure.string/lower-case group)))
 		   ;(POST "/publish/:group" [group :as {message :body}] (publish-handler group message))
 		   )
 
