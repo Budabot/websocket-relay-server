@@ -16,10 +16,11 @@
 	(http-kit/send! channel (json/write-str data :key-fn #(helper/entities-fn (name %)))))
 
 (defn notify-clients
-	([group msg]
-		(notify-clients group msg []))
-	([group msg exclude-channels]
-		(let [channels (filter #(every? (partial not= %) exclude-channels) (get @channels group #{}))]
+	[group msg source-channel]
+	(if (= group "echo")
+		(send-json source-channel msg)
+
+		(let [channels (disj (get @channels group #{}) source-channel)]
 			(doseq [listener channels]
 				(send-json listener msg)))))
 
@@ -35,18 +36,18 @@
 	[channel group]
 	(println (str "channel " channel " connecting to group '" group "'"))
 	(swap! channels add-listener channel group)
-	(notify-clients group {:type "joined" :payload (.toString channel) :created-at (quot (System/currentTimeMillis) 1000)} [channel]))
+	(notify-clients group {:type "joined" :payload (.toString channel) :created-at (quot (System/currentTimeMillis) 1000)} channel))
 
 (defn disconnect!
 	[channel group status]
 	(println (str "channel " channel " closed: " status))
 	(swap! channels remove-listener channel)
-	(notify-clients group {:type "left" :payload (.toString channel) :created-at (quot (System/currentTimeMillis) 1000)} [channel]))
+	(notify-clients group {:type "left" :payload (.toString channel) :created-at (quot (System/currentTimeMillis) 1000)} channel))
 
 (defn receive-message
 	[channel group message]
 	(println (str "publishing to group '" group "' with message: " message))
-	(notify-clients group {:type "message" :payload message :created-at (quot (System/currentTimeMillis) 1000)} [channel]))
+	(notify-clients group {:type "message" :payload message :created-at (quot (System/currentTimeMillis) 1000)} channel))
 
 ;{:sender {:char_id 0 :name ... player info}
 ; :message ""
@@ -64,7 +65,7 @@
 (defn publish-handler
 	[group message]
 	(println (str "publishing to '" group "' with message: " message))
-	(notify-clients group {:type "message" :payload message :created-at (quot (System/currentTimeMillis) 1000)})
+	(notify-clients group {:type "message" :payload message :created-at (quot (System/currentTimeMillis) 1000)} nil)
 	{:status 204})
 
 (defroutes open-routes
