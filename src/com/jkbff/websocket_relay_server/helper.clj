@@ -1,5 +1,6 @@
 (ns com.jkbff.websocket-relay-server.helper
-	(:require [ring.util.response :as response]))
+	(:require [ring.util.response :as response]
+						[clojure.data.json :as json]))
 
 (defn invalid-email?
 	[email]
@@ -32,3 +33,11 @@
 (defn serve-resource-file
 	[filename content-type]
 	(response/content-type (response/resource-response filename {:root "public"}) content-type))
+
+(defn write-json
+	[msg]
+	(json/write-str msg :key-fn #(entities-fn (name %))))
+
+(defn read-json
+	[msg]
+	(json/read-str msg :key-fn #(keyword (identifiers-fn %))))
