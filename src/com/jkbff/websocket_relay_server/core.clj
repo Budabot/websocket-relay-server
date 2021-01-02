@@ -70,6 +70,7 @@
 
 (defroutes open-routes
 		   (GET "/subscribe/:group" [group :as request] (subscribe-handler request (clojure.string/lower-case group)))
+			 (GET "/status" [] {:body {:message "OK"}})
 		   ;(POST "/publish/:group" [group :as {message :body}] (publish-handler group message))
 		   )
 
@@ -79,10 +80,12 @@
 (def app (-> (routes
 				 open-routes
 				 unknown-route)
-			 ;(wrap-json-response {:key-fn #(helper/entities-fn (name %))})
+			 (wrap-json-response {:key-fn #(helper/entities-fn (name %))})
 			 middleware/trim-trailing-slash
+			 ;middleware/set-text-content-type
 			 ;(wrap-json-body {:keywords? #(keyword (helper/identifiers-fn %))})
 			 (wrap-defaults api-defaults)
+			 ;middleware/log-request-and-response
 			 ))
 
 (defn -main
