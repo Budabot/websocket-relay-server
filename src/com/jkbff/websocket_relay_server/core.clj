@@ -40,7 +40,13 @@
 	[ws group]
 	(println (str "web-socket " ws " connecting to group '" group "'"))
 	(swap! groups add-listener ws group)
-	(notify-clients group {:type "joined" :client-id (:id ws) :created-at (quot (System/currentTimeMillis) 1000)} ws))
+	(notify-clients group {:type "joined" :client-id (:id ws) :created-at (quot (System/currentTimeMillis) 1000)} ws)
+
+	; notify new client of existing clients
+	(let [ws-list (disj (get @groups group #{}) ws)
+		  msg {:type "joined" :created-at (quot (System/currentTimeMillis) 1000)}]
+		(doseq [ws-other ws-list]
+			(send-json ws (assoc msg :client-id (:id ws-other))))))
 
 (defn disconnect!
 	[ws group status]
@@ -53,7 +59,7 @@
 	(let [obj (helper/read-json message)
 		  obj (assoc obj :client-id (:id ws) :created-at (quot (System/currentTimeMillis) 1000))]
 		(case (:type obj)
-			"message" (notify-clients group obj ws)\
+			"message" (notify-clients group obj ws)
 			nil)))
 
 (defn subscribe-handler
