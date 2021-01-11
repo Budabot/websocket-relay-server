@@ -12,55 +12,59 @@
 
 (defonce groups (atom {}))
 
+(defrecord WS [id web-socket])
+
 (defn send-json
-	[websocket data]
-	(http-kit/send! websocket (helper/write-json data)))
+	[ws data]
+	(http-kit/send! (:web-socket ws) (helper/write-json data)))
 
 (defn notify-clients
-	[group msg websocket]
+	[group msg ws]
+	(println (str "publishing to group '" group "' with message: " msg))
 	(if (= group "echo")
-		(send-json websocket msg)
+		(send-json ws msg)
 
-		(let [websockets (disj (get @groups group #{}) websocket)]
-			(doseq [listener websockets]
-				(send-json listener msg)))))
+		(let [ws-list (disj (get @groups group #{}) ws)]
+			(doseq [ws ws-list]
+				(send-json ws msg)))))
 
 (defn add-listener
-	[old websocket group]
-	(assoc old group (conj (get old group #{}) websocket)))
+	[old ws group]
+	(assoc old group (conj (get old group #{}) ws)))
 
 (defn remove-listener
-	[old websocket]
-	(zipmap (keys old) (map #(disj % websocket) (vals old))))
+	[old ws]
+	(zipmap (keys old) (map #(disj % ws) (vals old))))
 
 (defn connect!
-	[websocket group]
-	(println (str "websocket " websocket " connecting to group '" group "'"))
-	(swap! groups add-listener websocket group)
-	(notify-clients group {:type "joined" :payload (.toString websocket) :created-at (quot (System/currentTimeMillis) 1000)} websocket))
+	[ws group]
+	(println (str "web-socket " ws " connecting to group '" group "'"))
+	(swap! groups add-listener ws group)
+	(notify-clients group {:type "joined" :client-id (:id ws) :created-at (quot (System/currentTimeMillis) 1000)} ws))
 
 (defn disconnect!
-	[websocket group status]
-	(println (str "websocket " websocket " closed: " status))
-	(swap! groups remove-listener websocket)
-	(notify-clients group {:type "left" :payload (.toString websocket) :created-at (quot (System/currentTimeMillis) 1000)} websocket))
+	[ws group status]
+	(println (str "web-socket " ws " closed: " status))
+	(swap! groups remove-listener ws)
+	(notify-clients group {:type "left" :client-id (:id ws) :created-at (quot (System/currentTimeMillis) 1000)} ws))
 
 (defn receive-message
-	[websocket group message]
-	(let [obj (helper/read-json message)]
+	[ws group message]
+	(let [obj (helper/read-json message)
+		  obj (assoc obj :client-id (:id ws) :created-at (quot (System/currentTimeMillis) 1000))]
 		(case (:type obj)
-			"message" (do
-									(println (str "publishing to group '" group "' with message: " message))
-									(notify-clients group (assoc obj :created-at (quot (System/currentTimeMillis) 1000)) websocket))
+			"message" (notify-clients group obj ws)\
 			nil)))
 
 (defn subscribe-handler
 	[request group]
-	(http-kit/with-channel request websocket
-						   (connect! websocket group)
-						   (http-kit/on-close websocket (partial disconnect! websocket group))
-						   (http-kit/on-receive websocket (partial receive-message websocket group))
-						   ))
+	(http-kit/with-channel request web-socket
+						   (let [id (helper/generate-random 32)
+								 ws (->WS id web-socket)]
+							   (connect! ws group)
+							   (http-kit/on-close web-socket (partial disconnect! ws group))
+							   (http-kit/on-receive web-socket (partial receive-message ws group))
+							   )))
 
 (defn publish-handler
 	[group message]
