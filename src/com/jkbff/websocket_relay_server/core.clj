@@ -1,13 +1,14 @@
 (ns com.jkbff.websocket-relay-server.core
 	(:require [compojure.core :refer :all]
-						[compojure.route :as route]
-						[ring.middleware.defaults :refer [wrap-defaults api-defaults]]
-						[ring.middleware.json :refer [wrap-json-response wrap-json-body]]
-						[org.httpkit.server :refer [run-server]]
-						[com.jkbff.websocket-relay-server.helper :as helper]
-						[com.jkbff.websocket-relay-server.middleware :as middleware]
-						[org.httpkit.server :as http-kit]
-						[chime.core :as chime])
+			  [compojure.route :as route]
+			  [ring.middleware.defaults :refer [wrap-defaults api-defaults]]
+			  [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
+			  [org.httpkit.server :refer [run-server]]
+			  [com.jkbff.websocket-relay-server.helper :as helper]
+			  [com.jkbff.websocket-relay-server.middleware :as middleware]
+			  [org.httpkit.server :as http-kit]
+			  [chime.core :as chime]
+			  [clojure.tools.logging :as log])
 	(:import [java.time Instant Duration]))
 
 (defonce groups (atom {}))
@@ -20,7 +21,7 @@
 
 (defn notify-clients
 	[group msg ws]
-	(println (str "publishing to group '" group "' with message: " msg))
+	(log/info (str "publishing to group '" group "' with message: " msg))
 	(if (= group "echo")
 		(send-json ws msg)
 
@@ -38,7 +39,7 @@
 
 (defn connect!
 	[ws group]
-	(println (str "web-socket " ws " connecting to group '" group "'"))
+	(log/info (str "web-socket " ws " connecting to group '" group "'"))
 	(swap! groups add-listener ws group)
 	(notify-clients group {:type "joined" :client-id (:id ws) :created-at (quot (System/currentTimeMillis) 1000)} ws)
 
@@ -50,7 +51,7 @@
 
 (defn disconnect!
 	[ws group status]
-	(println (str "web-socket " ws " closed: " status))
+	(log/info (str "web-socket " ws " closed: " status))
 	(swap! groups remove-listener ws)
 	(notify-clients group {:type "left" :client-id (:id ws) :created-at (quot (System/currentTimeMillis) 1000)} ws))
 
@@ -74,7 +75,7 @@
 
 (defn publish-handler
 	[group message]
-	(println (str "publishing to '" group "' with message: " message))
+	(log/info (str "publishing to '" group "' with message: " message))
 	(notify-clients group {:type "message" :payload message :created-at (quot (System/currentTimeMillis) 1000)} nil)
 	{:status 204})
 
@@ -107,7 +108,7 @@
 	[& args]
 	(let [port 80]
 		(run-server app {:port port})
-		(println (str "Server started on port " port))
+		(log/info (str "Server started on port " port))
 		(chime/chime-at (rest (chime/periodic-seq (Instant/now) (Duration/ofMinutes 2)))
 										(fn [time]
 											(send-pings)))

@@ -1,7 +1,7 @@
 (ns com.jkbff.websocket-relay-server.middleware
 	(:require [ring.util.response :as response]
-						[com.jkbff.websocket-relay-server.helper :as helper]
-						[ring.middleware.json :refer [wrap-json-response wrap-json-body]]))
+			  [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
+			  [clojure.tools.logging :as log]))
 
 (defn set-content-type
 	[handler]
@@ -23,7 +23,7 @@
 (defn log-request-and-response
 	[handler]
 	(fn [request]
-		(prn "request:" request)
+		(log/info "request:" request)
 		(let [response (handler request)]
-			(prn "response:" response)
+			(log/info "response:" response)
 			response)))
