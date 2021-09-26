@@ -109,7 +109,7 @@
 	(let [port 80]
 		(run-server app {:port port})
 		(log/info (str "Server started on port " port))
-		(chime/chime-at (rest (chime/periodic-seq (Instant/now) (Duration/ofMinutes 2)))
+		(chime.core/chime-at (rest (chime.core/periodic-seq (Instant/now) (Duration/ofMinutes 2)))
 										(fn [time]
 											(send-pings)))
 
